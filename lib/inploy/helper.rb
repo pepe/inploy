@@ -72,5 +72,10 @@ module Inploy
     def install_gems
       rake "gems:install RAILS_ENV=#{environment}"
     end
+
+    def bundle_gems
+      run "gem bundle"
+    end
+
   end
 end
