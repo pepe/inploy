@@ -2,13 +2,13 @@ require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe Inploy::Deploy do
 
-  def expect_setup_with(branch)
+  def expect_setup_with(branch, environment = 'production')
     if branch.eql? 'master'
       checkout = ""
     else
       checkout = "&& $($(git branch | grep -vq #{branch}) && git checkout -f -b #{branch} origin/#{branch})"
     end
-    expect_command "ssh #{@ssh_opts} #{@user}@#{@host} 'cd #{@path} && git clone --depth 1 #{@repository} #{@application} && cd #{@application} #{checkout} && rake inploy:local:setup'"
+    expect_command "ssh #{@ssh_opts} #{@user}@#{@host} 'cd #{@path} && git clone --depth 1 #{@repository} #{@application} && cd #{@application} #{checkout} && rake inploy:local:setup environment=#{environment}'"
   end
 
   def setup(subject)
@@ -27,6 +27,13 @@ describe Inploy::Deploy do
     expect_setup_with "master"
     subject.remote_setup
   end
+  
+  it "should use production as default environment" do
+    setup subject
+    expect_command "gem bundle"
+    dont_accept_command "rake db:migrate RAILS_ENV=production"
+    subject.local_setup
+  end
 
   it "should use production as the default environment" do
     subject.environment.should eql("production")
@@ -42,7 +49,7 @@ describe Inploy::Deploy do
 
     context "on remote setup" do
       it "should clone the repository with the application name, checkout the branch and execute local setup" do
-        expect_setup_with @branch
+        expect_setup_with @branch, @environment
         subject.remote_setup
       end
 
@@ -53,25 +60,14 @@ describe Inploy::Deploy do
     end
 
     context "on local setup" do
-      
       it "should use staging for the environment" do
-        dont_accept_command "rake db:migrate RAILS_ENV=staging"
+        subject.environment.should eql("staging")
         subject.local_setup
       end
-      
-      it_should_behave_like "local setup"
     end
 
     context "on remote update" do
       it_should_behave_like "remote update"
-
-      it "should exec the commands in all hosts" do
-        subject.hosts = ['host0', 'host1', 'host2']
-        3.times.each do |i|
-          expect_command "ssh #{@ssh_opts} #{@user}@host#{i} 'cd #{@path}/#{@application} && rake inploy:local:update environment=#{@environment}'"
-        end
-        subject.remote_update
-      end
     end
 
     context "on local update" do
@@ -80,7 +76,10 @@ describe Inploy::Deploy do
         subject.local_update
       end
 
-      it_should_behave_like "local update"
+      it "should bundle gems" do
+        expect_command "gem bundle"
+        subject.local_update
+      end
     end
   end
 end
