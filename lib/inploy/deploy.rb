@@ -28,7 +28,7 @@ module Inploy
     end
 
     def local_setup
-      create_folders 'tmp/pids', 'db'
+      create_folders 'tmp/pids'
       run "./init.sh" if File.exists?("init.sh")
       after_update_code
     end
@@ -45,6 +45,7 @@ module Inploy
     private
 
     def after_update_code
+      create_folders 'db'
       run "git submodule update --init"
       copy_sample_files
       install_gems
